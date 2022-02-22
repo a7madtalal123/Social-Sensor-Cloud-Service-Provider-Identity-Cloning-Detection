@@ -17,6 +17,7 @@ from dateutil.parser import parse
 import ast
 from Crypto.Cipher import AES
 from statistics import mean , stdev
+import pickle
 
 group = PairingGroup('MNT224', secparam=1024)
 obj = ibe.IBE_BonehFranklin(group)
@@ -111,7 +112,7 @@ def load_sk():
     return sk
 #EXTRACT PRIVATE KEY FOR USERS
 def extract_private_key (ey):
-    #print(ey)
+
     mpk = load_mpk()
     sk = load_sk()
     sk = str(sk[2:-1])
@@ -128,17 +129,7 @@ def extract_private_key (ey):
         file.write(str(c.decode()))
     msk = load_msk()
 
-
-    #nonce = cipher.nonce
-    #av = []
-    #for i in range(10):
-        #s = time.process_time()
     private_key = obj.extract(msk, ey["username"])
-        #e = time.process_time()
-        #d = e - s
-        #print("Time for ", i, " : ", d)
-        #av.append(d)
-    #print("ava time is :", mean(av), "(", stdev(av), ")")
     private_key = objectToBytes(private_key, group)
 
     key = c
@@ -151,62 +142,53 @@ def extract_private_key (ey):
 
     print('\nSK is created FOR ' + ey["username"] + ' \n')
 
-    # cipher123 = AES.new(key, AES.MODE_EAX, nonce=nonce)
-    # plaintext = cipher123.decrypt(ciphertext)
-    #
-    # try:
-    #     cipher123.verify(tag)
-    #     print("The message is authentic:", plaintext)
-    # except ValueError:
-    #     print("Key incorrect or message corrupted")
-
-
-    # # LOAD MASTER SECRET KEY
-    # msk = load_msk()
-    # #s = time.time() #time.process_time()
-    # private_key = obj.extract(msk, username)
-    # #e = time.time() #time.process_time()
-    # #print ("time is :", e-s)
-    # private_key = objectToBytes(private_key, group)
-    # with open(os.path.join("/home/ubuntu/IBE_GUI/sk/",username+".txt"), "w") as file:
-    #     file.write(str(private_key))
-    # print('\n\nSK is created FOR ' + username + ' \n\n')
 
 def check_reports():
     os.system('clear')
-    reports = pd.read_csv('reports.csv')
-    #users = pd.read_csv('users.csv')
-    if reports.empty == True:
+    report_filename = 'reports3.dat'
+    reports = []
+    with open(report_filename, 'rb') as rfp:
+        reports = pickle.load(rfp)
+
+    if not reports:
         print( '\n\nThere is no authentication reports..\n\n\n')
         main()
     else:
-        print ("\nHere is the list of the authentication results....\n ")
-        print ("auth_sat: " + prRed("0 - the authentication is not successful." ))
+        mpk = load_mpk()
+        sk = load_sk()
+        sk = str(sk[2:-1])
+        sk = bytesToObject(sk, group)
+        print('*************************')
+        print("\nHere is the list of the authentication results....\n ")
+
+        for i in range(len(reports)):
+            u_sat = reports[i][3]
+            v_sat = reports[i][4]
+            w_sat = reports[i][5]
+            u = bytesToObject(u_sat, group)
+            v = OS2IP(v_sat)
+            v = integer(v)
+            w = OS2IP(w_sat)
+            w = integer(w)
+            dy = {'U': u, 'V': v, 'W': w}
+            c = obj.decrypt(mpk, sk, dy).decode()
+            if c == '0':
+                a = prRed('0')
+            elif c == '1':
+                a = prGreen('1')
+            else:
+                a = prYellow('n')
+
+            print(reports[i][0],',', reports[i][1],a)
+        print('')
+        print("auth_sat: " + prRed("0 - the authentication is not successful."))
         print("auth_sat: " + prGreen("1 - the authentication is successful."))
         print("auth_sat: " + prYellow("n - the similar account is not their account.\n"))
-        print(reports)
-        username = reports['account_A'].values
-        auth_sat = reports['auth_sat'].values
-        count_f = 0
-        count_uf = 0
-        count_un = 0
-        for i in range(len(username)):
-            if auth_sat[i] == '0':
-                #users.loc[users.username == username[i], 'satus'] = 0
-                #users.to_csv('users.csv', index=False)
-                count_f += 1
-            elif auth_sat[i] == '1':
-                #users.loc[users.username == username[i], 'satus'] = 1
-                #users.to_csv('users.csv', index=False)
-                count_uf +=1
-            elif auth_sat[i] == 'n':
-                count_un +=1
-
-        print ("\nThere are "+ prRed(count_f) + " accounts failed authentication.")
-        print ("There are "+ prGreen(count_uf) + " accounts passed authentication.")
-        print("There are " + prYellow(count_un) + " accounts respond that the similar account is not their account.\n\n\n")
-        #reports = reports.iloc[0:0]
-        #reports.to_csv('reports.csv',index=False)
+        print('')
+        print('*************************')
+        print('')
+        print('')
+        print('')
         main()
 
 def check_sk_requests ():
@@ -222,10 +204,7 @@ def check_sk_requests ():
             with open(os.path.join("/home/ubuntu/IBE_GUI/requests/", username[i] + ".txt")) as f:
                 e = f.read()
             ey = ast.literal_eval(e)
-
-    #         print(username[i])
-    #         print(users.iloc[i].to_dict())
-            extract_private_key(ey)#users.iloc[i].to_dict())#username[i])
+            extract_private_key(ey)
         users = users.iloc[0:0]
         users.to_csv('requests.csv', index=False)
         main()
@@ -253,16 +232,8 @@ def send_encrypted(account_pair):
     now = datetime.now()
     timestamp = now.strftime("%d/%m/%Y %H:%M:%S")
     mpk = load_mpk()
-    #av = []
-    #for i in range(10):
-        #s = time.process_time()
-    encrypt_message = obj.encrypt(mpk, original, message.encode())
-        #e = time.process_time()
-        #d= e-s
-        #av.append(d)
-        #print ("time is :", d)
-    #print("ava time is :", mean(av), "(", stdev(av), ")")
 
+    encrypt_message = obj.encrypt(mpk, original, message.encode())
 
     u = objectToBytes(encrypt_message["U"], group)
     v = IP2OS(encrypt_message["V"])

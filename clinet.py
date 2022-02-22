@@ -16,6 +16,7 @@ import time
 import random
 from Crypto.Cipher import AES
 from statistics import mean , stdev
+import pickle
 
 group = PairingGroup('MNT224', secparam=1024)
 obj = ibe.IBE_BonehFranklin(group)
@@ -64,10 +65,7 @@ def OS2IP(bytestr, element=False):
         if not py3: byt = ord(byt)
         val += byt << (8 * i)
 
-    # These lines convert val into a binary string of 1's and 0's
-    # bstr = bin(val)[2:]   #cut out the 0b header
-    # val = int(bstr, 2)
-    # return val
+
     if element:
         return integer(val)
     else:
@@ -84,19 +82,9 @@ def write_to_csv (list):
         writer.writerow(list)
 def send_SK_request (username,session_key):
     mpk = load_mpk()
-    #ava_t = []
-    #for i in range(10):
-
-        #s = time.process_time()
 
     ey_session_key = obj.encrypt(mpk,'CA',str(session_key).encode())
 
-        #e = time.process_time()
-        #d = e-s
-        #print("Time for ", i, " : ", d)
-        #ava_t.append(d)
-
-    #print ("ava time is :", mean(ava_t), "(", stdev(ava_t),")")
 
     u = objectToBytes(ey_session_key["U"], group)
     v = IP2OS(ey_session_key["V"])
@@ -115,25 +103,16 @@ def load_sk(username):
     secret_sesion_key = secret_read.read()
     secret_read.close()
 
-    #print(secret_sesion_key)
 
     file_in = open(os.path.join("/home/ubuntu/IBE_GUI/encrypted_sk/",username+".bin"), "rb")
     nonce, tag, ciphertext = [file_in.read(x) for x in (16, 16, -1)]
 
-    #print(ciphertext)
 
     cipher = AES.new(secret_sesion_key.encode(), AES.MODE_EAX, nonce)
     plaintext = cipher.decrypt(ciphertext)
 
     with open(os.path.join("/home/ubuntu/IBE_GUI/sk/",username+".txt"), "w") as file:
         file.write(str(plaintext))
-    #return plaintext
-    #print(plaintext)
-
-    # sk_r = open('/home/ubuntu/IBE_GUI/sk/' + username + '.txt')
-    # sk = sk_r.read()
-    # sk_r.close()
-    # return sk
 
 def load_sk_d(username):
     sk_r = open('/home/ubuntu/IBE_GUI/sk/' + username + '.txt')
@@ -189,12 +168,34 @@ def report(username_a,username_b,st):
     now = datetime.now()
     timestamp = now.strftime("%d/%m/%Y %H:%M:%S")
     r = [username_a,username_b, st,timestamp]
-    with open('./reports.csv', "a",encoding="utf-8") as f:
-        writer = csv.writer(f)
-        writer.writerow(r)
+    auth_sat_encrypt(r)
+
+def auth_sat_encrypt (response):
+    mpk = load_mpk()
+    s = time.process_time()
+    encrypt_sat = obj.encrypt(mpk, 'CA', str(response[2]).encode())
+    e = time.process_time()
+    d = e - s
+    print("Time for Enrcption auth is : ", d)
+    u_sat = objectToBytes(encrypt_sat["U"], group)
+    v_sat = IP2OS(encrypt_sat["V"])
+    w_sat = IP2OS(encrypt_sat["W"])
+    auth_reports = []
+    ey = [response[0], response[1], response[3], u_sat, v_sat,  w_sat]
+    report_filename = 'reports3.dat'
+
+    if os.path.exists(report_filename):
+        with open(report_filename, 'rb') as rfp:
+            auth_reports = pickle.load(rfp)
+
+    auth_reports.append(ey)
+    with open(report_filename, 'wb') as wfp:
+        pickle.dump(auth_reports, wfp)
+
 
 def decrypt (user_a,user_b,sk,e):
     mpk = load_mpk()
+
     dy = obj.decrypt(mpk,sk,e)
 
     #print("The dycerpted message is:", dy.decode())
