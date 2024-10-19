@@ -1,5 +1,5 @@
-# Social-Sensor-Cloud-Service-Provider-Identity-Cloning-Detection
-The Cryptography Based Authentication approach source code of the paper ''Social-Sensor Cloud Service Provider Identity Cloning Detection''.
+# Social-Sensor Identity Cloning Detection Using Weakly Supervised Deep Forest and Cryptographic Authentication
+The Cryptography Based Authentication approach source code of the paper ''Social-Sensor Identity Cloning Detection Using Weakly Supervised Deep Forest and Cryptographic Authentication''.
 
 
 Three .py files:
