@@ -1,1 +1,6 @@
+To concant the Multi-view Account Representation, use the wGCCA
+https://github.com/abenton/wgcca
+
+To run the DeepForest model, you should install via pip
+pip install deep-forest
 
